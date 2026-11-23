@@ -11,14 +11,17 @@ echo "=== تحديث Termux وتثبيت المتطلبات ==="
 pkg update -y && pkg upgrade -y
 pkg install -y python clang make cmake ninja pkg-config openssl libffi rust uv git
 
-echo "=== جلب مصدر grpcio 1.85.1 إلى كاش uv ==="
-uv pip install --dry-run --no-build-isolation --refresh-package grpcio==1.85.1 grpcio==1.85.1 >/dev/null 2>&1 || true
+echo "=== جلب مصدر grpcio 1.85.1 وفحص ares_config.h ==="
+TMP_GRPC="$(mktemp -d)"
+trap 'rm -rf "$TMP_GRPC"' EXIT
 
-CACHE="$(uv cache dir)"
-H="$(find "$CACHE" -type f -path '*/grpcio/1.85.1*/third_party/cares/ares_config.h' -print -quit 2>/dev/null || true)"
+pip download --no-binary=:all: --no-deps "grpcio==1.85.1" -d "$TMP_GRPC"
+tar -xzf "$TMP_GRPC"/grpcio-1.85.1.tar.gz -C "$TMP_GRPC"
+
+H="$(find "$TMP_GRPC" -type f -path '*/third_party/cares/ares_config.h' -print -quit)"
 
 if [ -z "$H" ]; then
-    echo "خطأ: لم يتم العثور على ares_config.h في كاش uv. تأكد من الاتصال بالإنترنت."
+    echo "خطأ: لم يتم العثور على ares_config.h داخل أرشيف grpcio==1.85.1."
     exit 1
 fi
 
