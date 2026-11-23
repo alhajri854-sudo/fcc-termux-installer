@@ -5,34 +5,23 @@ termux-wake-lock
 
 export UV_PYTHON_PREFERENCE=only-system
 export GRPC_PYTHON_BUILD_EXT_COMPILER_JOBS=1
-export PIP_NO_BUILD_ISOLATION=1
+export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
+export GRPC_PYTHON_BUILD_SYSTEM_CARES=1
+export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
+export CFLAGS="-I${PREFIX}/include"
+export LDFLAGS="-L${PREFIX}/lib"
 
 echo "=== تحديث Termux وتثبيت المتطلبات ==="
 pkg update -y && pkg upgrade -y
-pkg install -y python clang make cmake ninja pkg-config openssl libffi rust uv git
-
-echo "=== جلب مصدر grpcio 1.85.1 وفحص ares_config.h ==="
-TMP_GRPC="$(mktemp -d)"
-trap 'rm -rf "$TMP_GRPC"' EXIT
-
-pip download --no-binary=:all: --no-deps "grpcio==1.85.1" -d "$TMP_GRPC"
-tar -xzf "$TMP_GRPC"/grpcio-1.85.1.tar.gz -C "$TMP_GRPC"
-
-H="$(find "$TMP_GRPC" -type f -path '*/third_party/cares/ares_config.h' -print -quit)"
-
-if [ -z "$H" ]; then
-    echo "خطأ: لم يتم العثور على ares_config.h داخل أرشيف grpcio==1.85.1."
-    exit 1
-fi
-
-printf '#include "ares_config.h"\n' | clang -E -x c -I"${H%/*}" - >/dev/null
-echo "تم التحقق من الترويسة بنجاح: $H"
+pkg install -y python python-grpcio clang make cmake ninja pkg-config openssl c-ares zlib libffi rust uv git || \
+pkg install -y python clang make cmake ninja pkg-config openssl c-ares zlib libffi rust uv git
 
 echo "=== بدء تثبيت free-claude-code==6.19.11 ==="
 set +e
 uv tool install --force \
     --refresh-package free-claude-code \
     --python "$(command -v python)" \
+    --with-executables-from free-claude-code \
     free-claude-code==6.19.11 \
     -vv 2>&1 | tee "$HOME/fcc-install-native.log"
 INSTALL_STATUS="${PIPESTATUS[0]}"
